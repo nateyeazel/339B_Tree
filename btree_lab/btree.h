@@ -62,6 +62,13 @@ class BTreeIndex {
   ERROR_T      DisplayInternal(const SIZE_T &node,
 			       ostream &o,
 			       const BTreeDisplayType display_type=BTREE_DEPTH) const;
+  ERROR_T     SplitChild(const SIZE_T &parentNode, const SIZE_T i);
+
+  ERROR_T     InsertNonFull(const SIZE_T &node, const KEY_T &key);
+
+  SIZE_T      NumSlots(const SIZE_T &node);
+
+  bool        IsFull(const SIZE_T &node);
 public:
   //
   // keysize and valueszie should be stored in the
