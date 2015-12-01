@@ -64,7 +64,7 @@ class BTreeIndex {
 			       const BTreeDisplayType display_type=BTREE_DEPTH) const;
   ERROR_T     SplitChild(const SIZE_T &parentNode, const SIZE_T i);
 
-  ERROR_T     InsertNonFull(const SIZE_T &node, const KEY_T &key);
+  ERROR_T     InsertNonFull(const SIZE_T &node, const KeyValuePair &KeyVal);
 
   SIZE_T      NumSlots(const SIZE_T &node);
 

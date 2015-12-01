@@ -368,6 +368,8 @@ SIZE_T BTreeIndex::NumSlots(const SIZE_T &node){
       return b.info.GetNumSlotsAsInterior();
     case BTREE_LEAF_NODE:
       return b.info.GetNumSlotsAsLeaf();
+    default:
+      return 0;
     }
 }
 
@@ -391,6 +393,8 @@ bool BTreeIndex::IsFull(const SIZE_T &node)
       } else{
         return false;
       }
+    default:
+      return false;
   }
 }
 
@@ -398,6 +402,7 @@ ERROR_T BTreeIndex::Insert(const KEY_T &key, const VALUE_T &value)
 {
   SIZE_T root = superblock.info.rootnode;
   ERROR_T rc;
+  KeyValuePair keyVal(key, value);
   if(IsFull(root)){
     SIZE_T nodeAddress;
     BTreeNode newrootnode(BTREE_ROOT_NODE,
@@ -413,13 +418,15 @@ ERROR_T BTreeIndex::Insert(const KEY_T &key, const VALUE_T &value)
 
     newrootnode.SetPtr(0, root);
     SplitChild(nodeAddress, 0);
-      
-    rc = InsertNonFull(nodeAddress, key);
+    
+    rc = InsertNonFull(nodeAddress, keyVal);
       
   } else {
       
-    rc = InsertNonFull(root, key);
+    rc = InsertNonFull(root, keyVal);
   }
+    
+  return rc;
 }
 
 ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
@@ -479,8 +486,61 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
   return rc;
 }
 
-ERROR_T BTreeIndex::InsertNonFull(const SIZE_T &node, const KEY_T &key){
-
+ERROR_T BTreeIndex::InsertNonFull(const SIZE_T &node, const KeyValuePair &KeyVal) {
+    BTreeNode target;
+    ERROR_T rc = target.Unserialize(buffercache, node);
+    if (rc) {  return rc; }
+    SIZE_T num = target.info.numkeys;
+    KEY_T k;
+    rc = target.GetKey(num, k);
+    if (rc) {  return rc; }
+    if (target.info.nodetype == BTREE_LEAF_NODE)
+    {
+        while (num>=1 && KeyVal.key < k)
+        {
+            KeyValuePair p;
+            rc = target.GetKeyVal(num, p);
+            if (rc) {  return rc; }
+            rc = target.SetKeyVal(num+1, p);
+            if (rc) {  return rc; }
+            num--;
+            rc = target.GetKey(num, k);
+            if (rc) {  return rc; }
+        }
+        rc = target.SetKeyVal(num+1, KeyVal);
+        if (rc) {  return rc; }
+        target.info.numkeys++;
+        rc=target.Serialize(buffercache, node);
+        if (rc) {  return rc; }
+    }
+    else
+    {
+        while (num >= 1 && KeyVal.key < k)
+        {
+            num--;
+            rc = target.GetKey(num, k);
+            if (rc) {  return rc; }
+        }
+        BTreeNode child;
+        SIZE_T childAddress;
+        num++;
+        rc = target.GetPtr(num, childAddress);
+        if (rc) {  return rc; }
+        rc= child.Unserialize(buffercache, childAddress);
+        if (rc) {  return rc; }
+        if (IsFull(childAddress))
+        {
+            rc = SplitChild(node, num);
+            if (rc) {  return rc; }
+            if (k < KeyVal.key)
+            {
+                num++;
+            }
+        }
+        rc = InsertNonFull(childAddress, KeyVal);
+        if (rc) {  return rc; }
+    }
+    return ERROR_NOERROR;
 }
 
 ERROR_T BTreeIndex::Update(const KEY_T &key, const VALUE_T &value)
