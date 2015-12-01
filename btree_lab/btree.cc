@@ -400,23 +400,23 @@ ERROR_T SplitChild(const SIZE_T &parentNode, const SIZE_T i){
   AllocateNode(newNodeAddress);
 
   secondNode.info.nodetype = child.info.nodetype;
-  secondNode.numkeys = numSlots(secondNode) / 2;
+  secondNode.info.numkeys = numSlots(secondNode) / 2;
 
   KEY_T currentKeyVal;
-  for(int j = 0; j < secondNode.numkeys; j++){
-    rc = child.GetKey(j + secondNode.numkeys, currentKeyVal);
+  for(int j = 0; j < secondNode.info.numkeys; j++){
+    rc = child.GetKey(j + secondNode.info.numkeys, currentKeyVal);
     secondNode.SetKey(j, currentKeyVal);
   }
   SIZE_T currentPtr;
   VALUE_T currentVal;
   if(child.info.nodetype != BTREE_LEAF_NODE){ //If you're not at a leaf node copy the pointers
-    for(j=0; j <= secondNode.numkeys; j++){
-      rc = child.GetPtr(j + secondNode.numkeys, currentPtr);
+    for(j=0; j <= secondNode.info.numkeys; j++){
+      rc = child.GetPtr(j + secondNode.info.numkeys, currentPtr);
       secondNode.SetPtr(j, currentPtr);
     }
   }
 
-  child.numkeys = numSlots(secondNode) / 2;
+  child.info.numkeys = numSlots(secondNode) / 2;
 
   for(j=parent.info.numkeys; j>i+1; j--){ //Then change all of the pointers of the parent to the correct place
     rc = parent.GetKey(j, currentKeyVal);
@@ -448,9 +448,9 @@ SIZE_T numSlots(const SIZE_T &node){
   switch(b.info.nodetype){
     case BTREE_ROOT_NODE:
     case BTREE_INTERIOR_NODE:
-      return b.GetNumSlotsAsInterior();
+      return b.info.GetNumSlotsAsInterior();
     case BTREE_LEAF_NODE:
-      return b.GetNumSlotsAsLeaf();
+      return b.info.GetNumSlotsAsLeaf();
     }
 }
 
@@ -463,13 +463,13 @@ bool IsFull(const SIZE_T &node)
   switch(b.info.nodetype){
     case BTREE_ROOT_NODE:
     case BTREE_INTERIOR_NODE:
-      if(b.GetNumSlotsAsInterior() == b.numkeys){
+      if(b.info.GetNumSlotsAsInterior() == b.numkeys){
         return true;
       } else{
         return false;
       }
     case BTREE_LEAF_NODE:
-      if(b.GetNumSlotsAsLeaf() == b.numkeys){
+      if(b.info.GetNumSlotsAsLeaf() == b.numkeys){
         return true;
       } else{
         return false;
