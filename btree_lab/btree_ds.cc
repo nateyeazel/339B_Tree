@@ -80,7 +80,7 @@ BTreeNode::BTreeNode(const BTreeNode &rhs)
   info.blocksize=rhs.info.blocksize;
   info.rootnode=rhs.info.rootnode;
   info.freelist=rhs.info.freelist;
-  info.numkeys=rhs.info.numkeys;				       
+  info.numkeys=rhs.info.numkeys;
   data=0;
   if (rhs.data) { 
    data=new char [info.GetNumDataBytes()];
