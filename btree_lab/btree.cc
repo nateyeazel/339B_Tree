@@ -410,20 +410,23 @@ ERROR_T BTreeIndex::Insert(const KEY_T &key, const VALUE_T &value)
         superblock.info.valuesize,
         buffercache->GetBlockSize());
 
-    AllocateNode(nodeAddress);
+    rc = AllocateNode(nodeAddress);
+    if (rc) {  return rc; }
 
     newrootnode.info.rootnode = nodeAddress;
 
     newrootnode.info.numkeys=0;
 
-    newrootnode.SetPtr(0, root);
-    SplitChild(nodeAddress, 0);
-    
+    rc= newrootnode.SetPtr(0, root);
+    if (rc) {  return rc; }
+    rc = SplitChild(nodeAddress, 0);
+    if (rc) {  return rc; }
     rc = InsertNonFull(nodeAddress, keyVal);
-      
+      if (rc) {  return rc; }
   } else {
       
     rc = InsertNonFull(root, keyVal);
+    if (rc) {  return rc; }
   }
     
   return rc;
@@ -436,15 +439,19 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
   SIZE_T leftChildAddress;
 
   rc = parent.Unserialize(buffercache, parentAddress);
+  if (rc) {  return rc; }
   rc = parent.GetPtr(i, leftChildAddress);
+  if (rc) {  return rc; }
   rc = leftChild.Unserialize(buffercache, leftChildAddress);
+  if (rc) {  return rc; }
 
   SIZE_T rightChildAddress;
   BTreeNode rightChild(BTREE_INTERIOR_NODE,
           superblock.info.keysize,
           superblock.info.valuesize,
           buffercache->GetBlockSize());
-  AllocateNode(rightChildAddress);
+  rc = AllocateNode(rightChildAddress);
+  if (rc) {  return rc; }
 
   rightChild.info.nodetype = leftChild.info.nodetype;
   rightChild.info.numkeys = (NumSlots(rightChildAddress) + 1)/ 2; // add one in case we are splitting an odd number
@@ -452,13 +459,17 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
   KEY_T currentKeyVal;
   for(SIZE_T j = 0; j < rightChild.info.numkeys; j++){
     rc = leftChild.GetKey(j + rightChild.info.numkeys, currentKeyVal);
-    rightChild.SetKey(j, currentKeyVal);
+    if (rc) {  return rc; }
+    rc = rightChild.SetKey(j, currentKeyVal);
+    if (rc) {  return rc; }
   }
   SIZE_T currentPtr;
   if(leftChild.info.nodetype != BTREE_LEAF_NODE){ //If you're not at a leaf node copy the pointers
     for(SIZE_T j = 0; j <= rightChild.info.numkeys; j++){
       rc = leftChild.GetPtr(j + rightChild.info.numkeys, currentPtr);
-      rightChild.SetPtr(j, currentPtr);
+      if (rc) {  return rc; }
+      rc = rightChild.SetPtr(j, currentPtr);
+      if (rc) {  return rc; }
     }
   }
 
@@ -466,22 +477,32 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
 
   for(SIZE_T j = parent.info.numkeys; j > i; j--){ //Change all of the pointers of the parent to the correct place
     rc = parent.GetPtr(j, currentPtr);
-    parent.SetPtr(j+1, currentPtr);
+    if (rc) {  return rc; }
+    rc = parent.SetPtr(j+1, currentPtr);
+    if (rc) {  return rc; }
   }
-  parent.SetPtr(i+1, rightChildAddress);
+  rc = parent.SetPtr(i+1, rightChildAddress);
+  if (rc) {  return rc; }
     
   for(SIZE_T j = parent.info.numkeys; j >= i; j--){ //Then change all of the keys of the parent to the correct place
         rc = parent.GetKey(j, currentKeyVal);
-        parent.SetKey(j+1, currentKeyVal);
+        if (rc) {  return rc; }
+        rc = parent.SetKey(j+1, currentKeyVal);
+        if (rc) {  return rc; }
   }
   rc = leftChild.GetKey(i, currentKeyVal);
-  parent.SetKey(i+1, currentKeyVal);
+  if (rc) {  return rc; }
+  rc = parent.SetKey(i+1, currentKeyVal);
+  if (rc) {  return rc; }
 
   parent.info.numkeys += 1;
 
   rc=parent.Serialize(buffercache, parentAddress);
+  if (rc) {  return rc; }
   rc=leftChild.Serialize(buffercache, leftChildAddress);
+  if (rc) {  return rc; }
   rc=rightChild.Serialize(buffercache, rightChildAddress);
+  if (rc) {  return rc; }
     
   return rc;
 }
