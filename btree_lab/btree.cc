@@ -411,7 +411,14 @@ ERROR_T BTreeIndex::Insert(const KEY_T &key, const VALUE_T &value)
   SIZE_T root = superblock.info.rootnode;
   ERROR_T rc;
   KeyValuePair keyVal(key, value);
+  BTreeNode rootnode;
+
+  rc = rootnode.Unserialize(buffercache, root);
+  if (rc) {  return rc; }
+
   if(IsFull(root)){
+    // cout << "\n ROOT IS FULL!!!!!!\n";
+
     SIZE_T newRootNodeAddress;
     BTreeNode newrootnode(BTREE_ROOT_NODE,
         superblock.info.keysize,
@@ -420,23 +427,31 @@ ERROR_T BTreeIndex::Insert(const KEY_T &key, const VALUE_T &value)
 
     rc = AllocateNode(newRootNodeAddress);
     if (rc) {  return rc; }
-
+    // cout << "\n Allocated new root at address " << newRootNodeAddress << "\n";
     newrootnode.info.rootnode = newRootNodeAddress;
+    superblock.info.rootnode = newRootNodeAddress;
+
+    rc = superblock.Serialize(buffercache, superblock_index);
+    if (rc) {  return rc; }
 
     newrootnode.info.numkeys=0;
+    rootnode.info.nodetype = BTREE_INTERIOR_NODE;
+    rootnode.info.rootnode = newRootNodeAddress;
 
-    newrootnode.SetPtr(0, root);
+    rc = rootnode.Serialize(buffercache, root);
+    if (rc) {  return rc; }
+    rc = newrootnode.SetPtr(0, root);
+    if (rc) {  return rc; }
     rc = newrootnode.Serialize(buffercache, newRootNodeAddress);
     if (rc) {  return rc; }
+
+    // cout << "\n Going into splitting child and old root pointer is " << root << '\n';
     rc = SplitChild(newRootNodeAddress, 0);
     if (rc) {  return rc; }
 
     return InsertNonFull(newRootNodeAddress, keyVal);
   } else {
-    ERROR_T rc;
-    BTreeNode rootnode;
 
-    rc = rootnode.Unserialize(buffercache, root);
 
     if(rootnode.info.numkeys == 0){
       SIZE_T firstChildAddress;
@@ -489,7 +504,7 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
   if (rc) {  return rc; }
   rc = leftChild.Unserialize(buffercache, leftChildAddress);
   if (rc) {  return rc; }
-  //cout << "\nThrough first Unserialize with child address " << leftChildAddress << "\n";
+  // cout << "\nThrough first Unserialize with child address " << leftChildAddress << "\n";
 
   SIZE_T rightChildAddress;
   BTreeNode rightChild(BTREE_INTERIOR_NODE,
@@ -498,25 +513,27 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
           buffercache->GetBlockSize());
   rc = AllocateNode(rightChildAddress);
   if (rc) {  return rc; }
-  //cout << "\n right child created with address " << rightChildAddress << "\n";
+  // cout << "\n right child created with address " << rightChildAddress << "\n";
 
   rightChild.info.nodetype = leftChild.info.nodetype;
   rightChild.info.numkeys = (NumSlots(leftChildAddress) + 1)/ 2; // add one in case we are splitting an odd number
 
   KEY_T currentKeyVal;
   VALUE_T currentVal;
-  //cout << "\nAt first for loop with numkeys " << rightChild.info.numkeys << "\n";
+  // cout << "\nAt first for loop with numkeys " << rightChild.info.numkeys << "\n";
   for(SIZE_T j = 0; j < rightChild.info.numkeys; j++){
     rc = leftChild.GetKey(j + rightChild.info.numkeys, currentKeyVal);
     if (rc) {  return rc; }
     rc = rightChild.SetKey(j, currentKeyVal);
     if (rc) {  return rc; }
-    rc = leftChild.GetVal(j + rightChild.info.numkeys - 1, currentVal);
-    //cout << "\n CurrentVal is " << currentVal << "\n";
-    if (rc) {  return rc; }
-    rc = rightChild.SetVal(j, currentVal);
-    if (rc) {  return rc; }
+    if(leftChild.info.nodetype == BTREE_LEAF_NODE){
+      rc = leftChild.GetVal(j + rightChild.info.numkeys, currentVal);
+      if (rc) {  return rc; }
+      rc = rightChild.SetVal(j, currentVal);
+      if (rc) {  return rc; }
+    }
   }
+
   SIZE_T currentPtr;
   if(leftChild.info.nodetype != BTREE_LEAF_NODE){ //If you're not at a leaf node copy the pointers
     for(SIZE_T j = 0; j <= rightChild.info.numkeys; j++){
@@ -539,18 +556,21 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
     rc = parent.SetPtr(j+1, currentPtr);
     if (rc) {  return rc; }
   }
-  //cout << "\nMade it past second for loop\n";
+  // cout << "\nMade it past second for loop\n";
   rc = parent.SetPtr(i+1, rightChildAddress);
   if (rc) {  return rc; }
 
-  //cout << "\n Parent numkeys is " << parent.info.numkeys << " and i is " << i << "\n";
+  // cout << "\n Parent numkeys is " << parent.info.numkeys << " and i is " << i << "\n";
   for(SIZE_T j = parent.info.numkeys - 1; j >= i; j--){ //Then change all of the keys of the parent to the correct place
+        if(j == 0){
+          break;
+        }
         rc = parent.GetKey(j-1, currentKeyVal);
         if (rc) {  return rc; }
         rc = parent.SetKey(j, currentKeyVal);
         if (rc) {  return rc; }
   }
-  //cout << "\nMade it past third for loop\n";
+  // cout << "\nMade it past third for loop\n";
   parent.SetKey(i, promotedKey);
 
   rc=parent.Serialize(buffercache, parentAddress);
@@ -614,7 +634,8 @@ ERROR_T BTreeIndex::InsertNonFull(const SIZE_T &node, const KeyValuePair &KeyVal
         }
 
         if(KeyVal.key == k){ //If the key already exists in the tree
-          while (num<target.info.numkeys) //Move everything back down
+          num++;
+          while (num<target.info.numkeys-1) //Move everything back down NEEDS TO BE -1!!!!!
           {
             // cout << "\n Inside While loop with num = " << num;
               KeyValuePair p;
@@ -658,11 +679,12 @@ ERROR_T BTreeIndex::InsertNonFull(const SIZE_T &node, const KeyValuePair &KeyVal
         if(num == 0){ //To differentiate between getting 0th child and 1st child
             rc = target.GetKey(0, k);
             if (rc) {  return rc; }
-            if(k < KeyVal.key){
-              num++;
-            } else if(KeyVal.key == k){
-              return ERROR_CONFLICT;
-            }
+        }
+        //RECENT CHANGE
+        if(k < KeyVal.key){
+          num++;
+        } else if(KeyVal.key == k){
+          return ERROR_CONFLICT;
         }
 
 
@@ -677,9 +699,18 @@ ERROR_T BTreeIndex::InsertNonFull(const SIZE_T &node, const KeyValuePair &KeyVal
         {
             rc = SplitChild(node, num);
             if (rc) {  return rc; }
-            if (k < KeyVal.key)
+            ERROR_T rc = target.Unserialize(buffercache, node);
+            if (rc) {  return rc; }
+
+            rc = target.GetKey(num, k);
+
+            if (k < KeyVal.key || k == KeyVal.key)
             {
                 num++;
+                rc = target.GetPtr(num, childAddress);
+                if (rc) {  return rc; }
+                rc= child.Unserialize(buffercache, childAddress);
+                if (rc) {  return rc; }
             }
         }
         // cout << "\nMade it to next InsertNonFull call with child address " << childAddress << "\n";
