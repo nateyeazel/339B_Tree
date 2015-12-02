@@ -827,11 +827,72 @@ ERROR_T BTreeIndex::Display(ostream &o, BTreeDisplayType display_type) const
 
 ERROR_T BTreeIndex::SanityCheck() const
 {
-  // WRITE ME
-  return ERROR_UNIMPL;
+    SIZE_T root = superblock.info.rootnode;
+    return IsInOrder(root, 0, SIZE_MAX);
 }
 
-
+ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, const KEY_T &maxBound) const
+{
+    BTreeNode node;
+    rc = node.Unserialize(buffercache, nodeaddress);
+    if (rc) {  return rc; }
+    
+    KEY_T lesserKeyVal;
+    KEY_T greaterKeyVal;
+    
+    //Check the 1st key is equal to min bound, if there is one
+    if (minBound > 0 and node.info.numkeys > 0) {
+        rc = node.GetKey(0, lesserKeyVal);
+        if (rc) {  return rc; }
+        if (!(lesserKeyVal == minBound)) {  return ERROR_BADCONFIG;  }
+    }
+    
+    //Check the last key is less than the max bound, if there is one
+    if (maxBound < SIZE_MAX and node.info.numkeys > 0) {
+        rc = node.GetKey((node.info.numkeys - 1), greaterKeyVal);
+        if (rc) {  return rc; }
+        if (!(greaterKeyVal < maxBound)) {  return ERROR_BADCONFIG;  }
+    }
+    
+    //Check that all keys are in order
+    for(SIZE_T i = 0; i < node.info.numkeys - 1; i++){
+        rc = node.GetKey(i, lesserKeyVal);
+        if (rc) {  return rc; }
+        rc = node.GetKey(i, greaterKeyVal);
+        if (rc) {  return rc; }
+        if (!(lesserKeyVal < greaterKeyVal)) {  return ERROR_BADCONFIG;  }
+    }
+    
+    //Recurse on each child pointer if not leaf
+    if (node.info.nodetype != BTREE_LEAF_NODE) {
+        SIZE_T childAddress;
+        for(SIZE_T i = 0; i <= node.info.numkeys; i++){
+            // Get point
+            rc = node.GetPtr(i, childAddress);
+            if (rc) {  return rc; }
+            // Get min bound
+            if (i == 0) {
+                lesserKeyVal = 0;
+            } else {
+                rc = node.GetKey(i-1, lesserKeyVal);
+                if (rc) {  return rc; }
+            }
+            // Get max bound
+            if (i == node.info.numkeys) {
+                greaterKeyVal = SIZE_MAX;
+            } else {
+                rc = node.GetKey(i, greaterKeyVal);
+                if (rc) {  return rc; }
+            }
+            // Recurse
+            rc = IsInOrder(childAddress, lesserKeyVal, greaterKeyVal);
+            if (rc) {  return rc; }
+        }
+    }
+    
+    // All good if we reached this point!
+    return ERROR_NOERROR;
+}
 
 ostream & BTreeIndex::Print(ostream &os) const
 {
