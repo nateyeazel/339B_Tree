@@ -417,11 +417,20 @@ ERROR_T BTreeIndex::Insert(const KEY_T &key, const VALUE_T &value)
 
     newrootnode.info.numkeys=0;
 
+<<<<<<< Updated upstream
+    rc= newrootnode.SetPtr(0, root);
+    if (rc) {  return rc; }
+    rc = SplitChild(nodeAddress, 0);
+    if (rc) {  return rc; }
+    rc = InsertNonFull(nodeAddress, keyVal);
+      if (rc) {  return rc; }
+=======
     newrootnode.SetPtr(0, root);
     SplitChild(nodeAddress, 0);
 
     rc = InsertNonFull(nodeAddress, keyVal);
-      if (rc) {  return rc; }
+
+>>>>>>> Stashed changes
   } else {
 
     rc = InsertNonFull(root, keyVal);
@@ -454,7 +463,7 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
 
   rightChild.info.nodetype = leftChild.info.nodetype;
   rightChild.info.numkeys = (NumSlots(rightChildAddress) + 1)/ 2; // add one in case we are splitting an odd number
-
+  cout << "Made it to the beginning of Split Child";
   KEY_T currentKeyVal;
   for(SIZE_T j = 0; j < rightChild.info.numkeys; j++){
     rc = leftChild.GetKey(j + rightChild.info.numkeys, currentKeyVal);
@@ -483,25 +492,43 @@ ERROR_T BTreeIndex::SplitChild(const SIZE_T &parentAddress, const SIZE_T i){
     rc = parent.SetPtr(j+1, currentPtr);
     if (rc) {  return rc; }
   }
+<<<<<<< Updated upstream
   rc = parent.SetPtr(i+1, rightChildAddress);
   if (rc) {  return rc; }
     
+=======
+  parent.SetPtr(i+1, rightChildAddress);
+
+>>>>>>> Stashed changes
   for(SIZE_T j = parent.info.numkeys; j >= i; j--){ //Then change all of the keys of the parent to the correct place
         rc = parent.GetKey(j, currentKeyVal);
         if (rc) {  return rc; }
         rc = parent.SetKey(j+1, currentKeyVal);
         if (rc) {  return rc; }
   }
+<<<<<<< Updated upstream
+  rc = leftChild.GetKey(i, currentKeyVal);
+  if (rc) {  return rc; }
+  rc = parent.SetKey(i+1, currentKeyVal);
+  if (rc) {  return rc; }
+=======
+>>>>>>> Stashed changes
 
   parent.SetKey(i+1, promotedKey);
+
+
 
   rc=parent.Serialize(buffercache, parentAddress);
   if (rc) {  return rc; }
   rc=leftChild.Serialize(buffercache, leftChildAddress);
   if (rc) {  return rc; }
   rc=rightChild.Serialize(buffercache, rightChildAddress);
+<<<<<<< Updated upstream
   if (rc) {  return rc; }
     
+=======
+
+>>>>>>> Stashed changes
   return rc;
 }
 
