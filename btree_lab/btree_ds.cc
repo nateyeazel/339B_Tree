@@ -28,7 +28,7 @@ SIZE_T NodeMetadata::GetNumSlotsAsLeaf() const
 }
 
 
-ostream & NodeMetadata::Print(ostream &os) const 
+ostream & NodeMetadata::Print(ostream &os) const
 {
   os << "NodeMetaData(nodetype="<<(nodetype==BTREE_UNALLOCATED_BLOCK ? "UNALLOCATED_BLOCK" :
 				   nodetype==BTREE_SUPERBLOCK ? "SUPERBLOCK" :
@@ -40,7 +40,7 @@ ostream & NodeMetadata::Print(ostream &os) const
   return os;
 }
 
-BTreeNode::BTreeNode() 
+BTreeNode::BTreeNode()
 {
   info.nodetype=BTREE_UNALLOCATED_BLOCK;
   data=0;
@@ -48,7 +48,7 @@ BTreeNode::BTreeNode()
 
 BTreeNode::~BTreeNode()
 {
-  if (data) { 
+  if (data) {
     delete [] data;
   }
   data=0;
@@ -64,7 +64,7 @@ BTreeNode::BTreeNode(int node_type, SIZE_T key_size, SIZE_T value_size, SIZE_T b
   info.blocksize=block_size;
   info.rootnode=0;
   info.freelist=0;
-  info.numkeys=0;				       
+  info.numkeys=0;
   data=0;
   if (info.nodetype!=BTREE_UNALLOCATED_BLOCK && info.nodetype!=BTREE_SUPERBLOCK) {
     data = new char [info.GetNumDataBytes()];
@@ -72,7 +72,7 @@ BTreeNode::BTreeNode(int node_type, SIZE_T key_size, SIZE_T value_size, SIZE_T b
   }
 }
 
-BTreeNode::BTreeNode(const BTreeNode &rhs) 
+BTreeNode::BTreeNode(const BTreeNode &rhs)
 {
   info.nodetype=rhs.info.nodetype;
   info.keysize=rhs.info.keysize;
@@ -82,14 +82,14 @@ BTreeNode::BTreeNode(const BTreeNode &rhs)
   info.freelist=rhs.info.freelist;
   info.numkeys=rhs.info.numkeys;
   data=0;
-  if (rhs.data) { 
+  if (rhs.data) {
    data=new char [info.GetNumDataBytes()];
     memcpy(data,rhs.data,info.GetNumDataBytes());
   }
 }
 
 
-BTreeNode & BTreeNode::operator=(const BTreeNode &rhs) 
+BTreeNode & BTreeNode::operator=(const BTreeNode &rhs)
 {
   return *(new (this) BTreeNode(rhs));
 }
@@ -102,7 +102,7 @@ ERROR_T BTreeNode::Serialize(BufferCache *b, const SIZE_T blocknum) const
   Block block(sizeof(info)+info.GetNumDataBytes());
 
   memcpy(block.data,&info,sizeof(info));
-  if (info.nodetype!=BTREE_UNALLOCATED_BLOCK && info.nodetype!=BTREE_SUPERBLOCK) { 
+  if (info.nodetype!=BTREE_UNALLOCATED_BLOCK && info.nodetype!=BTREE_SUPERBLOCK) {
     memcpy(block.data+sizeof(info),data,info.GetNumDataBytes());
   }
 
@@ -123,8 +123,8 @@ ERROR_T  BTreeNode::Unserialize(BufferCache *b, const SIZE_T blocknum)
   }
 
   memcpy(&info,block.data,sizeof(info));
-  
-  if (data) { 
+
+  if (data) {
     delete [] data;
     data=0;
   }
@@ -135,24 +135,28 @@ ERROR_T  BTreeNode::Unserialize(BufferCache *b, const SIZE_T blocknum)
     data = new char [info.GetNumDataBytes()];
     memcpy(data,block.data+sizeof(info),info.GetNumDataBytes());
   }
-  
+
   return ERROR_NOERROR;
 }
 
 
 char * BTreeNode::ResolveKey(const SIZE_T offset) const
 {
-  switch (info.nodetype) { 
+  // cout << "\n The node is of type" << info.nodetype << "\n";
+  switch (info.nodetype) {
   case BTREE_INTERIOR_NODE:
   case BTREE_ROOT_NODE:
+    // cout << "\nin root node";
     assert(offset<info.numkeys);
     return data+sizeof(SIZE_T)+offset*(sizeof(SIZE_T)+info.keysize);
     break;
   case BTREE_LEAF_NODE:
+    // cout << "\n in leaf node";
     assert(offset<info.numkeys);
     return data+sizeof(SIZE_T)+offset*(info.keysize+info.valuesize);
     break;
   default:
+    // cout << "\n in resolveKey default node";
     return 0;
   }
 }
@@ -160,7 +164,7 @@ char * BTreeNode::ResolveKey(const SIZE_T offset) const
 
 char * BTreeNode::ResolvePtr(const SIZE_T offset) const
 {
-  switch (info.nodetype) { 
+  switch (info.nodetype) {
   case BTREE_INTERIOR_NODE:
   case BTREE_ROOT_NODE:
     assert(offset<=info.numkeys);
@@ -179,7 +183,7 @@ char * BTreeNode::ResolvePtr(const SIZE_T offset) const
 
 char * BTreeNode::ResolveVal(const SIZE_T offset) const
 {
-  switch (info.nodetype) { 
+  switch (info.nodetype) {
   case BTREE_LEAF_NODE:
     assert(offset<info.numkeys);
     return data+sizeof(SIZE_T)+offset*(info.keysize+info.valuesize)+info.keysize;
@@ -200,10 +204,10 @@ ERROR_T BTreeNode::GetKey(const SIZE_T offset, KEY_T &k) const
 {
   char *p=ResolveKey(offset);
 
-  if (p==0) { 
+  if (p==0) {
     return ERROR_NOMEM;
   }
-  
+
   k.Resize(info.keysize,false);
   memcpy(k.data,p,info.keysize);
   return ERROR_NOERROR;
@@ -213,10 +217,10 @@ ERROR_T BTreeNode::GetPtr(const SIZE_T offset, SIZE_T &ptr) const
 {
   char *p=ResolvePtr(offset);
 
-  if (p==0) { 
+  if (p==0) {
     return ERROR_NOMEM;
   }
-  
+
   memcpy(&ptr,p,sizeof(SIZE_T));
   return ERROR_NOERROR;
 }
@@ -225,10 +229,10 @@ ERROR_T BTreeNode::GetVal(const SIZE_T offset, VALUE_T &v) const
 {
   char *p=ResolveVal(offset);
 
-  if (p==0) { 
+  if (p==0) {
     return ERROR_NOMEM;
   }
-  
+
   v.Resize(info.valuesize,false);
   memcpy(v.data,p,info.valuesize);
   return ERROR_NOERROR;
@@ -239,8 +243,8 @@ ERROR_T BTreeNode::GetKeyVal(const SIZE_T offset, KeyValuePair &p) const
 {
   ERROR_T rc= GetKey(offset,p.key);
 
-  if (rc!=ERROR_NOERROR) { 
-    return rc; 
+  if (rc!=ERROR_NOERROR) {
+    return rc;
   } else {
     return GetVal(offset,p.value);
   }
@@ -251,7 +255,9 @@ ERROR_T BTreeNode::SetKey(const SIZE_T offset, const KEY_T &k)
 {
   char *p=ResolveKey(offset);
 
-  if (p==0) { 
+
+  if (p==0) {
+    // cout << " setKey pointer was 0 ";
     return ERROR_NOMEM;
   }
 
@@ -265,7 +271,7 @@ ERROR_T BTreeNode::SetPtr(const SIZE_T offset, const SIZE_T &ptr)
 {
   char *p=ResolvePtr(offset);
 
-  if (p==0) { 
+  if (p==0) {
     return ERROR_NOMEM;
   }
 
@@ -279,22 +285,24 @@ ERROR_T BTreeNode::SetPtr(const SIZE_T offset, const SIZE_T &ptr)
 ERROR_T BTreeNode::SetVal(const SIZE_T offset, const VALUE_T &v)
 {
   char *p=ResolveVal(offset);
-  
-  if (p==0) { 
+
+  if (p==0) {
+    // cout << " setVal pointer was 0 ";
     return ERROR_NOMEM;
   }
-  
+
   memcpy(p,v.data,info.valuesize);
-  
+
   return ERROR_NOERROR;
 }
 
 
 ERROR_T BTreeNode::SetKeyVal(const SIZE_T offset, const KeyValuePair &p)
 {
+
   ERROR_T rc=SetKey(offset,p.key);
 
-  if (rc!=ERROR_NOERROR) { 
+  if (rc!=ERROR_NOERROR) {
     return rc;
   } else {
     return SetVal(offset,p.value);
@@ -304,10 +312,10 @@ ERROR_T BTreeNode::SetKeyVal(const SIZE_T offset, const KeyValuePair &p)
 
 
 
-ostream & BTreeNode::Print(ostream &os) const 
+ostream & BTreeNode::Print(ostream &os) const
 {
   os << "BTreeNode(info="<<info;
-  if (info.nodetype!=BTREE_UNALLOCATED_BLOCK && info.nodetype!=BTREE_SUPERBLOCK) { 
+  if (info.nodetype!=BTREE_UNALLOCATED_BLOCK && info.nodetype!=BTREE_SUPERBLOCK) {
     os <<", ";
     if (info.nodetype==BTREE_INTERIOR_NODE || info.nodetype==BTREE_ROOT_NODE) {
       SIZE_T ptr;
@@ -322,16 +330,16 @@ ostream & BTreeNode::Print(ostream &os) const
 	}
 	GetPtr(info.numkeys,ptr);
 	os <<ptr;
-      } 
+      }
       os << ")";
-	
+
     }
-    if (info.nodetype==BTREE_LEAF_NODE) { 
+    if (info.nodetype==BTREE_LEAF_NODE) {
       KEY_T key;
       VALUE_T val;
       os << "keys_and_values=(";
       for (SIZE_T i=0;i<info.numkeys;i++) {
-	if (i>0) { 
+	if (i>0) {
 	  os<<", ";
 	}
 	GetKey(i,key);

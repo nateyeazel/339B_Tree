@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include "btree.h"
+#include <iostream>
 
-void usage() 
+void usage()
 {
   cerr << "usage: btree_update filestem cachesize key value\n";
 }
@@ -14,7 +15,7 @@ int main(int argc, char **argv)
   SIZE_T superblocknum;
   char *key, *value;
 
-  if (argc!=5) { 
+  if (argc!=5) {
     usage();
     return -1;
   }
@@ -27,34 +28,35 @@ int main(int argc, char **argv)
   DiskSystem disk(filestem);
   BufferCache cache(&disk,cachesize);
   BTreeIndex btree(0,0,&cache);
-  
+
   ERROR_T rc;
 
-  if ((rc=cache.Attach())!=ERROR_NOERROR) { 
+  if ((rc=cache.Attach())!=ERROR_NOERROR) {
     cerr << "Can't attach buffer cache due to error"<<rc<<endl;
     return -1;
   }
 
-  if ((rc=btree.Attach(0))!=ERROR_NOERROR) { 
+  if ((rc=btree.Attach(0))!=ERROR_NOERROR) {
     cerr << "Can't attach to index  due to error "<<rc<<endl;
     return -1;
   } else {
     cerr << "Index attached!"<<endl;
-    if ((rc=btree.Update(KEY_T(key),VALUE_T(value)))!=ERROR_NOERROR) { 
+    if ((rc=btree.Update(KEY_T(key),VALUE_T(value)))!=ERROR_NOERROR) {
+      cerr<< "\nPassed in key " << key << " And value " << value << "\n";
       cerr <<"Can't update index due to error "<<rc<<endl;
     } else {
       cerr <<"Update succeeded\n";
     }
-    if ((rc=btree.Detach(superblocknum))!=ERROR_NOERROR) { 
+    if ((rc=btree.Detach(superblocknum))!=ERROR_NOERROR) {
       cerr <<"Can't detach from index due to error "<<rc<<endl;
       return -1;
     }
-    if ((rc=cache.Detach())!=ERROR_NOERROR) { 
+    if ((rc=cache.Detach())!=ERROR_NOERROR) {
       cerr <<"Can't detach from cache due to error "<<rc<<endl;
       return -1;
     }
     cerr << "Performance statistics:\n";
-    
+
     cerr << "numallocs       = "<<cache.GetNumAllocs()<<endl;
     cerr << "numdeallocs     = "<<cache.GetNumDeallocs()<<endl;
     cerr << "numreads        = "<<cache.GetNumReads()<<endl;
@@ -62,12 +64,12 @@ int main(int argc, char **argv)
     cerr << "numwrites       = "<<cache.GetNumWrites()<<endl;
     cerr << "numdiskwrites   = "<<cache.GetNumDiskWrites()<<endl;
     cerr << endl;
-    
+
     cerr << "total time      = "<<cache.GetCurrentTime()<<endl;
 
     return 0;
   }
 }
-  
 
-  
+
+
