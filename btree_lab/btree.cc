@@ -830,7 +830,6 @@ ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, 
     BTreeNode node;
     rc = node.Unserialize(buffercache, nodeaddress);
     if (rc) {  return rc; }
-    
     KEY_T lesserKeyVal;
     KEY_T greaterKeyVal;
     
@@ -849,7 +848,7 @@ ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, 
     }
     
     //Check that all keys are in order
-    for(SIZE_T i = 0; i < node.info.numkeys - 1; i++){
+    for(SIZE_T i = 0; i + 1 < node.info.numkeys; i++){
         rc = node.GetKey(i, lesserKeyVal);
         if (rc) {  return rc; }
         rc = node.GetKey(i+1, greaterKeyVal);
