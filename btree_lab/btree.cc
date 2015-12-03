@@ -824,15 +824,9 @@ ERROR_T BTreeIndex::Display(ostream &o, BTreeDisplayType display_type) const
   return ERROR_NOERROR;
 }
 
-
-ERROR_T BTreeIndex::SanityCheck() const
-{
-    SIZE_T root = superblock.info.rootnode;
-    return IsInOrder(root, 0, SIZE_MAX);
-}
-
 ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, const KEY_T &maxBound) const
 {
+    ERROR_T rc;
     BTreeNode node;
     rc = node.Unserialize(buffercache, nodeaddress);
     if (rc) {  return rc; }
@@ -841,14 +835,14 @@ ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, 
     KEY_T greaterKeyVal;
     
     //Check the 1st key is equal to min bound, if there is one
-    if (minBound > 0 and node.info.numkeys > 0) {
+    if (KEY_MIN < minBound and node.info.numkeys > 0) {
         rc = node.GetKey(0, lesserKeyVal);
         if (rc) {  return rc; }
         if (!(lesserKeyVal == minBound)) {  return ERROR_BADCONFIG;  }
     }
     
     //Check the last key is less than the max bound, if there is one
-    if (maxBound < SIZE_MAX and node.info.numkeys > 0) {
+    if (maxBound < KEY_MAX and node.info.numkeys > 0) {
         rc = node.GetKey((node.info.numkeys - 1), greaterKeyVal);
         if (rc) {  return rc; }
         if (!(greaterKeyVal < maxBound)) {  return ERROR_BADCONFIG;  }
@@ -872,14 +866,14 @@ ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, 
             if (rc) {  return rc; }
             // Get min bound
             if (i == 0) {
-                lesserKeyVal = 0;
+                lesserKeyVal = KEY_MIN;
             } else {
                 rc = node.GetKey(i-1, lesserKeyVal);
                 if (rc) {  return rc; }
             }
             // Get max bound
             if (i == node.info.numkeys) {
-                greaterKeyVal = SIZE_MAX;
+                greaterKeyVal = KEY_MAX;
             } else {
                 rc = node.GetKey(i, greaterKeyVal);
                 if (rc) {  return rc; }
@@ -892,6 +886,12 @@ ERROR_T BTreeIndex::IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, 
     
     // All good if we reached this point!
     return ERROR_NOERROR;
+}
+
+ERROR_T BTreeIndex::SanityCheck() const
+{
+    SIZE_T root = superblock.info.rootnode;
+    return IsInOrder(root, KEY_MIN, KEY_MAX);
 }
 
 ostream & BTreeIndex::Print(ostream &os) const

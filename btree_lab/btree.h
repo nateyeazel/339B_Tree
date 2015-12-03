@@ -11,6 +11,24 @@
 
 #include "btree_ds.h"
 
+#include <limits>
+
+#ifndef SIZE_MAX
+# ifdef __SIZE_MAX__
+#  define SIZE_MAX __SIZE_MAX__
+# else
+#  define SIZE_MAX std::numeric_limits<size_t>::max()
+# endif
+#endif
+
+#ifndef KEY_MAX
+# define KEY_MAX (KEY_T)SIZE_MAX
+#endif
+
+#ifndef KEY_MIN
+# define KEY_MIN (KEY_T)((SIZE_T)0)
+#endif
+
 using namespace std;
 
 // To simplify our lives, we will just treat a Key or Value as being
@@ -69,6 +87,8 @@ class BTreeIndex {
   SIZE_T      NumSlots(const SIZE_T &node);
 
   bool        IsFull(const SIZE_T &node);
+    
+    ERROR_T   IsInOrder(const SIZE_T &nodeaddress, const KEY_T &minBound, const KEY_T &maxBound) const;
 public:
   //
   // keysize and valueszie should be stored in the
